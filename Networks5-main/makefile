@@ -3,7 +3,7 @@ CFLAGS = -Wall -g -fPIC
 
 all: sniffer spoofer sas
 	clear
-	rm 207485251_322719881
+	rm 207485251_322719881.txt
 
 sniffer: sniffer.o
 	$(CC) $(CFLAGS) $^ -o $@ -lpcap
