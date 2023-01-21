@@ -1,5 +1,3 @@
-
-
 /*
 * Sniffer.c
 *
@@ -32,18 +30,16 @@ int main()
 {
 
   // declare the variables
-  pcap_t *handle;
-  char ebuffer[PCAP_ERRBUF_SIZE];
   struct bpf_program fp;
-  char *device_name = select_network_interface(ebuffer, handle); // get the device name from the user
+  char ebuffer[PCAP_ERRBUF_SIZE];
+  pcap_t *handle; // Session handle
+  char *device_name = netInterfaceSelect(ebuffer, handle);// get the device name from the user
 
-  // Open live pcap session on NIC with name enp0s3
+  // open the device for sniffing
   printf("Opening device %s for sniffing ...\n", device_name);
 
-  // 65536 guarantees that the whole packet will be captured on all the link layers
-  handle = pcap_open_live(device_name, 65536, 1, 0, ebuffer);
-
-  if (handle == NULL) // Check if the session is opened correctly
+  // Open the session in promiscuous mode
+  if ((handle = pcap_open_live(device_name, 65536, 1, 0, ebuffer)) == NULL) // Check if the session is opened correctly
   {
     fprintf(stderr, "Couldn't open device %s: %s\n", device_name, ebuffer);
     return (2); // return 2 means that the program failed
@@ -62,42 +58,57 @@ int main()
   // check if the filter is valid and compile it to BPF code (bytecode) that the kernel can use
 
   // Compile and set the filter
-  if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1)
-  { // compile the filter expression
-    fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
-    print_error("Error - Couldn't parse filter, check the filter expression\n");
-    return exit_program;
-  }
-  if (pcap_setfilter(handle, &fp) == -1)
-  { // set the filter for the session we opened in step 1
-    fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
-    print_error("Error - Couldn't install filter, check the filter expression\n");
-    pcap_freecode(&fp); // free the memory allocated by pcap_compile
-    return exit_program;
-  }
+  switch(pcap_compile(handle, &fp, filter_exp, 0, net)) {
+    case 0:
+        break;
+    case -1:
+        fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        print_error("Error - Couldn't parse filter, check the filter expression\n");
+        return exit_program;
+    default:
+        break;
+}
+
+switch(pcap_setfilter(handle, &fp)) {
+    case 0:
+        break;
+    case -1:
+        fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        print_error("Error - Couldn't install filter, check the filter expression\n");
+        pcap_freecode(&fp);
+        return exit_program;
+    default:
+        break;
+}
+
   pcap_freecode(&fp); // free the memory allocated by pcap_compile
 
   // Open the log file to write the packets data
   log = fopen("207485251_322719881.txt", "w");
-  if (log == NULL) // check if the file was opened correctly
-  {
-    perror("Error opening file");
-    return EXIT_FAILURE; // error
+  switch(log==NULL) {
+    case 0:
+        break;
+    case 1:
+        perror("Error opening file");
+        return EXIT_FAILURE;
+    default:
+        break;
   }
-  // Communicate with the filter driver
   printf("start sniffing...\n");
   int ret_code = 0;
-  // Capture packets - the function pcap_loop() is called to capture packets from the network
-  int loop = pcap_loop(handle, -1, got_packet, NULL);
-  if (loop < 0)
-  {
-    fprintf(stderr, "Error while capturing packets: %s\n", pcap_geterr(handle));
-    ret_code = -1;
+  int loop = pcap_loop(handle, -1, takeAPacket, NULL);
+  switch(loop) {
+      case 0:
+          printf("capturing completed successfully\n");
+          break;
+      case -1:
+          fprintf(stderr, "Error while capturing packets: %s\n", pcap_geterr(handle));
+          ret_code = -1;
+          break;
+      default:
+          break;
   }
-  else
-  { // if the capture was successful
-    printf("capturing completed successfully\n");
-  }
+
   pcap_close(handle); // Close the handle
   fclose(log);
   return ret_code; // return the return code
@@ -112,44 +123,41 @@ int main()
  * returns if file pointer or data is invalid.
  */
 
-void cast_to_hex(FILE *fp, char *data, int size)
-{
-  // Check if the input file pointer and data buffer are valid
-  if (fp == NULL || data == NULL)
-  {
-    // Print error message to stderr
-    fprintf(stderr, "Invalid input\n");
-    return;
-  }
-  // Check if the size of the buffer is valid
-  if (size <= 0)
-  {
-    fprintf(stderr, "Invalid size\n");
-    return;
-  }
-
-  int i; // Loop counter- index of the byte in the buffer data
-  for (i = 0; i < size; i++)
-  {
-    // Print each byte in hex format to the file
-    fprintf(fp, "%02x ", (unsigned char)data[i]); // %02x - print the byte in hex format with leading zeros
-    if ((i + 1) % 16 == 0)                        // check if the current byte is the last byte of the 16 bytes' block
-    {
-      fprintf(fp, "\n"); // add a newline at the end of the 16 bytes' block
+void cast_to_hex(FILE *fp, char *data, int size) {
+    switch(fp==NULL || data==NULL) {
+        case 0:
+            break;
+        case 1:
+            fprintf(stderr, "Invalid input\n");
+            return;
+        default:
+            break;
     }
-  }
-  // Add a newline character at the end
-  fprintf(fp, "\n");
+    switch(size<=0) {
+        case 0:
+            break;
+        case 1:
+            fprintf(stderr, "Invalid size\n");
+            return;
+        default:
+            break;
+    }
+    int i;
+    for (i = 0; i < size; i++) {
+        switch((i + 1) % 16) {
+            case 0:
+                fprintf(fp, "%02x\n", (unsigned char)data[i]);
+                break;
+            default:
+                fprintf(fp, "%02x ", (unsigned char)data[i]);
+                break;
+        }
+    }
+    fprintf(fp, "\n");
 }
 
-/*
- * got_packet() - Function to process a captured packet.
- *
- * @args: User-defined argument passed to the callback function.
- * @header: Pointer to the pcap_pkthdr struct containing packet metadata.
- * @packet: Pointer to the buffer containing the raw packet data.
- */
-void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
+
+void takeAPacket(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
   // Get the length of the packet
   int length = header->len;
@@ -187,19 +195,18 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
   fflush(log); // flush the log file buffer- write the data to the file immediately
   // flush the log file buffer
   fflush(log); // flush the log file buffer- write the data to the file immediately
-  // Check the protocol and call the appropriate function to process the packet
-  if (iph->protocol == 6)
-  {
-    TCP_pack(packet, ethernet_header, length);
+  switch(iph->protocol) {
+    case 6:
+        TCP_pack(packet, ethernet_header, length);
+        break;
+    case 1:
+        ICMP_pack(packet, ethernet_header, length);
+        break;
+    default:
+        printf("not tcp or icmp\n");
+        break;
   }
-  else if (iph->protocol == 1)
-  {
-    icmp_pack(packet, ethernet_header, length);
-  }
-  else
-  {
-    printf("not tcp or icmp\n");
-  }
+
 }
 /**
  * This function is used to process TCP packets and print relevant information to a log file.
@@ -240,35 +247,35 @@ void TCP_pack(const u_char *packet, int ethernet_header, int length)
 }
 
 /**
- * This function is used to process icmp packets and print relevant information to a log file.
+ * This function is used to process ICMP packets and print relevant information to a log file.
  *
  * @param packet A pointer to the buffer containing the raw packet data.
  * @param ethernet_header Size of the ethernet header in bytes.
  * @param length Total length of the packet in bytes.
  */
 
-void icmp_pack(const u_char *packet, int ethernet_header, int length)
+void ICMP_pack(const u_char *packet, int ethernet_header, int length)
 {
-  // extract icmp header and print relevant information
-  fprintf(log, "_____________________ ** icmp ** _____________________\n");
+  // extract ICMP header and print relevant information
+  fprintf(log, "_____________________ ** ICMP ** _____________________\n");
   struct icmphdr *icmph = (struct icmphdr *)(packet + ethernet_header + sizeof(struct iphdr));
   fprintf(log, "|-Type:\t\t\t%d", (unsigned int)(icmph->type));
 
   // start count the time and add it to the packet
   print_time(log);
 
-  // Use a switch statement to handle different icmp types
+  // Use a switch statement to handle different ICMP types
   fprintf(log, "\n|-Message:\t\t");
   switch ((unsigned int)(icmph->type))
   {
-  case 11: // icmp Time Exceeded message
+  case 11: // ICMP Time Exceeded message
     fprintf(log, "TTL Expired");
     break;
-  case icmp_ECHOREPLY: // icmp Echo Reply message
-    fprintf(log, "icmp Echo Reply");
+  case ICMP_ECHOREPLY: // ICMP Echo Reply message
+    fprintf(log, "ICMP Echo Reply");
     break;
-  default: // Other icmp Type
-    fprintf(log, "Other icmp Type");
+  default: // Other ICMP Type
+    fprintf(log, "Other ICMP Type");
     break;
   }
   fprintf(log, "\n");
@@ -281,15 +288,15 @@ void icmp_pack(const u_char *packet, int ethernet_header, int length)
   int dataSize = length - ethernet_header - sizeof(struct iphdr) - sizeof(struct icmphdr);
 
   // if there is data, print it to the log file
-  if (dataSize > 0)
-  {
+  if(dataSize > 0) {
     fprintf(log, "_____________________ ** DATA ** _____________________\n");
-    char *data = (char *)(packet + ethernet_header + sizeof(struct iphdr) + sizeof(struct icmphdr));
+    char *data = (char *)(ethernet_header + packet + sizeof(struct iphdr) + sizeof(struct icmphdr));
     cast_to_hex(log, data, dataSize);
     fprintf(log, "|-Size:\t\t\t%d\n", dataSize);
     fprintf(log, "\n\n");
-    fflush(log); // flush the log file buffer- write the data to the file immediately
-  }
+    fflush(log);
+}
+
 }
 
 // Find the available devices
@@ -397,62 +404,51 @@ pcap_t *open_selected_device(char *devs[], int n, char *ebuffer)
  * @return A pointer to a string containing the name of the selected interface.
  */
 
-char *select_network_interface(char *ebuffer, pcap_t *handle)
-{
-  // Find the available devices
-  pcap_if_t *alldevsp;
-  if (pcap_findalldevs(&alldevsp, ebuffer) == -1)
-  {
-    fprintf(stderr, "Error finding devices: %s\n", ebuffer);
-    return NULL;
-  }
+char *netInterfaceSelect(char *ebuffer, pcap_t *handle) {
+    int packets_number = 1, n;
+    pcap_if_t *alldevsp, *device;
+    char *devs[100][100];
 
-  // Print the available devices and store their names in an array
-  int packets_number = 1;
-  char(*devs)[100] = malloc(100 * sizeof(*devs));
-  for (pcap_if_t *device = alldevsp; device != NULL; device = device->next)
-  {
-    printf("%d. %s - %s\n", packets_number, device->name, device->description);
-    if (device->name != NULL)
-    {
-      strcpy(devs[packets_number], device->name);
+    printf("Finding available devices ... ");
+    int result = pcap_findalldevs(&alldevsp, ebuffer);
+    switch (result) {
+        case 0:
+            printf("Done\n");
+            break;
+        default:
+            printf("Error finding devices : %s", ebuffer);
+            return 1;
     }
-    else
-    {
-      printf("device name is null\n");
-      strcpy(devs[packets_number], "NULL");
+
+    // Print the available devices
+    printf("Available Devices are :\n");
+    device = alldevsp;
+    while (device != NULL) {
+        printf("%d. %s - %s\n", packets_number, device->name, device->description);
+        if (device->name != NULL) {
+            strcpy(devs[packets_number], device->name);
+        }
+        packets_number++;
+        device = device->next;
     }
-    packets_number++;
-  }
 
-  // Select the device
-  int n;
-  select_device(packets_number, &n);
-
-  // Open the selected device
-  handle = pcap_open_live(devs[n], 65536, 1, 0, ebuffer);
-  if (handle == NULL)
-  {
-    fprintf(stderr, "Error opening device %s: %s\n", devs[n], ebuffer);
-    return NULL;
-  }
-
-  char *device_name = malloc(sizeof(devs[n]));
-  strcpy(device_name, devs[n]);
-  free(devs);
-  pcap_freealldevs(alldevsp);
-  return device_name;
+    // Ask user which device to sniff
+    printf("Enter the number of the device you want to sniff : ");
+    scanf("%d", &n);
+    if (handle == NULL) {
+        fprintf(stderr, "Couldn't open device %s : %s\n", devs[n], ebuffer);
+        return 1;
+    }
+    printf("Done\n");
+    char *devName = devs[n];
+    return devName;
 }
-/**
- * this function is used to get the filter from the user
- *
- *
- */
+
 char *getFilter()
 {
   char *filter_exp;
   char user_filter;
-  printf("Hey expensive user, \n Please enter 'A'/'a' to catch TCP packets or 'C'/'c' to catch icmp packets \n it's your choice :) \n");
+  printf("Hey expensive user, \n Please enter 'A'/'a' to catch TCP packets or 'C'/'c' to catch ICMP packets \n it's your choice :) \n");
 
   // get the filter from the user - A or C - and check if the input is valid (A or C)
   while (scanf(" %c", &user_filter) != 1 || (user_filter != 'A' && user_filter != 'a' && user_filter != 'C' && user_filter != 'c'))
@@ -515,6 +511,6 @@ void print_choice(int choice)
   }
   if (choice == 2)
   {
-    printf("Filter set to catch packets from icmp\n");
+    printf("Filter set to catch packets from ICMP\n");
   }
 }

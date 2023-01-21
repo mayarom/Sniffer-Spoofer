@@ -1,8 +1,0 @@
-{
-    "C_Cpp.errorSquiggles": "disabled",
-    "files.associations": {
-        "ip.h": "c",
-        "inet.h": "c",
-        "tcp.h": "c"
-    }
-}
