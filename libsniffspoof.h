@@ -80,7 +80,7 @@ char *select_network_interface(char *ebuffer, pcap_t *handle);
 void cast_to_hex(FILE *fp, char *data, int size);
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 void TCP_pack(const u_char *packet, int ethernet_header, int length);
-void ICMP_pack(const u_char *packet, int ethernet_header, int length);
+void icmp_pack(const u_char *packet, int ethernet_header, int length);
 char *getFilter();
 void print_error(int error);
 int exit_program();

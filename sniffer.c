@@ -194,7 +194,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
   }
   else if (iph->protocol == 1)
   {
-    ICMP_pack(packet, ethernet_header, length);
+    icmp_pack(packet, ethernet_header, length);
   }
   else
   {
@@ -240,35 +240,35 @@ void TCP_pack(const u_char *packet, int ethernet_header, int length)
 }
 
 /**
- * This function is used to process ICMP packets and print relevant information to a log file.
+ * This function is used to process icmp packets and print relevant information to a log file.
  *
  * @param packet A pointer to the buffer containing the raw packet data.
  * @param ethernet_header Size of the ethernet header in bytes.
  * @param length Total length of the packet in bytes.
  */
 
-void ICMP_pack(const u_char *packet, int ethernet_header, int length)
+void icmp_pack(const u_char *packet, int ethernet_header, int length)
 {
-  // extract ICMP header and print relevant information
-  fprintf(log, "_____________________ ** ICMP ** _____________________\n");
+  // extract icmp header and print relevant information
+  fprintf(log, "_____________________ ** icmp ** _____________________\n");
   struct icmphdr *icmph = (struct icmphdr *)(packet + ethernet_header + sizeof(struct iphdr));
   fprintf(log, "|-Type:\t\t\t%d", (unsigned int)(icmph->type));
 
   // start count the time and add it to the packet
   print_time(log);
 
-  // Use a switch statement to handle different ICMP types
+  // Use a switch statement to handle different icmp types
   fprintf(log, "\n|-Message:\t\t");
   switch ((unsigned int)(icmph->type))
   {
-  case 11: // ICMP Time Exceeded message
+  case 11: // icmp Time Exceeded message
     fprintf(log, "TTL Expired");
     break;
-  case ICMP_ECHOREPLY: // ICMP Echo Reply message
-    fprintf(log, "ICMP Echo Reply");
+  case icmp_ECHOREPLY: // icmp Echo Reply message
+    fprintf(log, "icmp Echo Reply");
     break;
-  default: // Other ICMP Type
-    fprintf(log, "Other ICMP Type");
+  default: // Other icmp Type
+    fprintf(log, "Other icmp Type");
     break;
   }
   fprintf(log, "\n");
@@ -452,7 +452,7 @@ char *getFilter()
 {
   char *filter_exp;
   char user_filter;
-  printf("Hey expensive user, \n Please enter 'A'/'a' to catch TCP packets or 'C'/'c' to catch ICMP packets \n it's your choice :) \n");
+  printf("Hey expensive user, \n Please enter 'A'/'a' to catch TCP packets or 'C'/'c' to catch icmp packets \n it's your choice :) \n");
 
   // get the filter from the user - A or C - and check if the input is valid (A or C)
   while (scanf(" %c", &user_filter) != 1 || (user_filter != 'A' && user_filter != 'a' && user_filter != 'C' && user_filter != 'c'))
@@ -468,7 +468,7 @@ char *getFilter()
   }
   else if (user_filter == 'C' || user_filter == 'c')
   {
-    filter_exp = "ICMP";
+    filter_exp = "icmp";
     print_choice(2);
   }
 
@@ -515,6 +515,6 @@ void print_choice(int choice)
   }
   if (choice == 2)
   {
-    printf("Filter set to catch packets from ICMP\n");
+    printf("Filter set to catch packets from icmp\n");
   }
 }

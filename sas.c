@@ -58,7 +58,7 @@ int main()
         return -1;
     }
 
-    // Specify a filter - in this assigment , we request to catch only capture ICMP packets
+    // Specify a filter - in this assigment , we request to catch only capture icmp packets
     char *filter_exp = "icmp"; // filter expression
     printf(" The filter is: %s\n", filter_exp);
 
@@ -98,7 +98,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
         int ethernet_header_len = sizeof(struct ethhdr) + 2;
         struct iphdr *ip_header = (struct iphdr *)(packet + ethernet_header_len);
         struct icmphdr *icmp_header = (struct icmphdr *)(packet + ethernet_header_len + sizeof(struct iphdr));
-        if (icmp_header->type == ICMP_ECHO)
+        if (icmp_header->type == icmp_ECHO)
         {
             struct sockaddr_in dest;
             dest.sin_addr.s_addr = ip_header->daddr;
@@ -223,7 +223,7 @@ void copy_headers(const u_char *packet, int ether_header_len, char *reply)
 
     // copy the icmp header from the packet we want to reply to
     memcpy(reply_icmp_header, original_icmp_header, sizeof(struct icmphdr));
-    reply_icmp_header->type = ICMP_ECHOREPLY; // change type to ICMP_ECHOREPLY for echo reply
+    reply_icmp_header->type = icmp_ECHOREPLY; // change type to icmp_ECHOREPLY for echo reply
     reply_icmp_header->code = 0;              // change code to 0 for echo reply
     reply_icmp_header->checksum = 0;          // reset the checksum
 }
@@ -245,9 +245,9 @@ void copy_data(const u_char *packet, int ether_header_len, int packet_len, char 
 void create_reply_packet(const u_char *packet, int etherHeader, int length, char *reply)
 {
     copy_data(packet, etherHeader, length, reply);
-    struct icmphdr *ICMPHeader_reply = (struct icmphdr *)(reply + sizeof(struct iphdr));
+    struct icmphdr *icmpHeader_reply = (struct icmphdr *)(reply + sizeof(struct iphdr));
     int dataLen = length - etherHeader - sizeof(struct iphdr) - sizeof(struct icmphdr);
-    ICMPHeader_reply->checksum = calculate_checksum((unsigned short *)ICMPHeader_reply, sizeof(struct icmphdr) + dataLen);
+    icmpHeader_reply->checksum = calculate_checksum((unsigned short *)icmpHeader_reply, sizeof(struct icmphdr) + dataLen);
 }
 
 int open_sniffing_device(char *device_name, char *error_buffer, pcap_t **handle)
@@ -283,7 +283,7 @@ int set_filter(pcap_t *handle, char *filter_exp, bpf_u_int32 net, struct bpf_pro
 
 void catchNReplay(struct sockaddr_in dest, const char *packet, int ether_header_len, int packet_len, struct iphdr *IPHeader)
 {
-    printf("Caught ICMP echo request to %s\n", inet_ntoa(dest.sin_addr));
+    printf("Caught icmp echo request to %s\n", inet_ntoa(dest.sin_addr));
     char *reply = allocate_reply_packet(packet, ether_header_len, packet_len);
     create_reply_packet(packet, ether_header_len, packet_len, reply);
     dest.sin_family = AF_INET;
