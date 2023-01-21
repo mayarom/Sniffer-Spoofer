@@ -160,7 +160,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
   // Get the size of the ethernet header
   int ethernet_header = sizeof(struct ethhdr) + 2;
 
-  printf("Packet number:  %d " packets_number);
+  printf("Packet number:  %d ", packets_number);
   //  if the file was not opened in the main function -Open the log file to write the packets data
   if (log == NULL)
   {

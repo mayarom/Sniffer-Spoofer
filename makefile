@@ -13,10 +13,8 @@ spoofer: spoofer.o
 sas: sas.o
 	$(CC) $(CFLAGS) $^ -o $@ -lpcap
 
-#------- o files-------
 %.o:%.c
 	$(CC) $(CFLAGS) -c $^ -o $@	
-#------------------------------
 
 clean:
 	rm  *.o sniffer spoofer sas
