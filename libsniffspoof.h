@@ -93,7 +93,6 @@ unsigned short calculate_checksum(unsigned short *paddress, int len);
 char *netInterfaceSelect_spoofer(char *ebuffer, pcap_t *handle);
 int open_sniffing_device(char *devName, char *ebuffer, pcap_t **handle);
 char *allocate_reply_packet(const u_char *packet, int etherHeader, int length);
-void copy_headers_and_data(const u_char *packet, int etherHeader, int length, char *reply);
 void create_reply_packet(const u_char *packet, int etherHeader, int length, char *reply);
 void copy_headers(const u_char *packet, int ether_header_len, char *reply);
 void copy_data(const u_char *packet, int ether_header_len, int packet_len, char *reply);

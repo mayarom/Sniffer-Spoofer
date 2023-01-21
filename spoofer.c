@@ -7,6 +7,7 @@ date: 01/2023
 */
 
 // library
+// library
 #include "libsniffspoof.h"
 
 int main()
@@ -106,22 +107,26 @@ int send_reply(char *reply, int length, struct sockaddr_in dest)
 
 char *netInterfaceSelect_spoofer(char *ebuffer, pcap_t *handle)
 {
-
     int packets_number = 1, n;
     pcap_if_t *alldevsp, *device;
     char *devs[100][100];
-    // First get the list of available devices
+
     printf("Finding available devices ... ");
-    if (pcap_findalldevs(&alldevsp, ebuffer))
+    int result = pcap_findalldevs(&alldevsp, ebuffer);
+    switch (result)
     {
+    case 0:
+        printf("Done\n");
+        break;
+    default:
         printf("Error finding devices : %s", ebuffer);
         return 1;
     }
-    printf("Done");
 
     // Print the available devices
-    printf("\nAvailable Devices are :\n");
-    for (device = alldevsp; device != NULL; device = device->next)
+    printf("Available Devices are :\n");
+    device = alldevsp;
+    while (device != NULL)
     {
         printf("%d. %s - %s\n", packets_number, device->name, device->description);
         if (device->name != NULL)
@@ -129,6 +134,7 @@ char *netInterfaceSelect_spoofer(char *ebuffer, pcap_t *handle)
             strcpy(devs[packets_number], device->name);
         }
         packets_number++;
+        device = device->next;
     }
 
     // Ask user which device to sniff
@@ -142,14 +148,15 @@ char *netInterfaceSelect_spoofer(char *ebuffer, pcap_t *handle)
     printf("Done\n");
     char *devName = devs[n];
     return devName;
-};
+}
+
 // Compute checksum (RFC 1071).
 unsigned short calculate_checksum(unsigned short *paddress, int len)
 {
+    unsigned short *w = paddress;
     int nleft = len;
     int sum = 0;
-    unsigned short *w = paddress;
-    unsigned short answer = 0;
+    unsigned short tmp = 0;
 
     while (nleft > 1)
     {
@@ -159,16 +166,16 @@ unsigned short calculate_checksum(unsigned short *paddress, int len)
 
     if (nleft == 1)
     {
-        *((unsigned char *)&answer) = *((unsigned char *)w);
-        sum += answer;
+        *((unsigned char *)&tmp) = *((unsigned char *)w);
+        sum += tmp;
     }
 
     // add back carry outs from top 16 bits to low 16 bits
     sum = (sum >> 16) + (sum & 0xffff); // add hi 16 to low 16
     sum += (sum >> 16);                 // add carry
-    answer = ~sum;                      // truncate to 16 bits
+    tmp = ~sum;                         // truncate to 16 bits
 
-    return answer;
+    return tmp;
 };
 
 void catchNReplay(struct sockaddr_in dest, const char *packet, int ether_header_len, int packet_len, struct iphdr *IPHeader)

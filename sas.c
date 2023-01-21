@@ -32,13 +32,14 @@
 #include <netinet/udp.h>
 
 /*
-* sas.c
+* Spoofer.c
 *
 written by Maya Rom & Yogev Ofir
 id's: 207485251 & 322719881
 date: 01/2023
 */
 
+// library
 // library
 #include "libsniffspoof.h"
 
@@ -50,54 +51,37 @@ int main()
     char *devName = netInterfaceSelect_spoofer(ebuffer, handle); // Select the network interface to sniff on
 
     // Open the device for sniffing
-    printf("Opening device %s for sniffing ...\n", devName);
-
-    // pcap_open_live is a function from libpcap- it opens a device for sniffing
-    handle = pcap_open_live(devName, 65536, 1, 1, ebuffer);
-
-    // check if the device was opened successfully
-    if (handle == NULL) // error- couldn't open device
+    int result = open_sniffing_device(devName, ebuffer, &handle);
+    if (result != 0)
     {
-        fprintf(stderr, "Couldn't open device %s: %s\n", devName, ebuffer);
-        return (2);
-    }
-    else // device opened successfully
-    {
-        printf("WOW ! device %s opened successfully\n", devName);
+        printf("Error: %s\n", ebuffer);
+        return -1;
     }
 
     // Specify a filter - in this assigment , we request to catch only capture ICMP packets
     char *filter_exp = "icmp"; // filter expression
-    printf("filter: %s\n", filter_exp);
+    printf(" The filter is: %s\n", filter_exp);
 
     bpf_u_int32 net; // The IP of our sniffing device
 
     // compile the filter expression
 
     // catch errors
-    if (pcap_compile(handle, &fp, filter_exp, 0, net) == -1)
+    int result2 = set_filter(handle, filter_exp);
+    if (result2 == 0)
     {
-        fprintf(stderr, "Couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
+        // filter set successfully
+        //*** Capture packets - the callback function is got_packet() ***
+        pcap_loop(handle, -1, got_packet, NULL); // capture packets
+        pcap_close(handle);
     }
-    if (pcap_setfilter(handle, &fp) == -1)
+    else
     {
-        fprintf(stderr, "Couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
-        return (2);
+        // filter couldn't be set, check the error message
+        printf("Error: %s\n", pcap_geterr(handle));
     }
-    printf(" Great, we succeed parsing the filter! we can start sniffing...\n");
-
-    //*** Capture packets - the callback function is got_packet() ***
-
-    // info: https://www.tcpdump.org/pcap.html
-    //  the last argument is NULL because we don't need to pass any arguments to the callback function
-    //  -1 means that we want to capture packets until an error occurs
-    //  pcap_loop is a function from libpcap- it captures packets
-
-    pcap_loop(handle, -1, got_packet, NULL); // capture packets
-
-    pcap_close(handle); // Close the handle , we don't need it anymore because we already captured the packets
-    return 0;           // return 0 if everything went well
-};
+    return 0;
+}
 
 /**
  * this function is called every time a packet is captured by the sniffer
@@ -108,84 +92,20 @@ int main()
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
-    int len = header->len; // get the length of the packet
-    if (len >= sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct icmphdr))
+    int packet_len = header->len;
+    if (packet_len >= sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct icmphdr))
     {
-        // get the ethernet header length
-        int ethLen = sizeof(struct ethhdr) + 2;
-
-        // get the ip header
-        struct iphdr *IPHeader = (struct iphdr *)(packet + ethLen);
-
-        // get the icmp header
-        struct icmphdr *ICMPHeader = (struct icmphdr *)(packet + ethLen + sizeof(struct iphdr));
-
-        // check if the packet is an ICMP echo request
-        if (IPHeader->protocol == 1)
+        int ethernet_header_len = sizeof(struct ethhdr) + 2;
+        struct iphdr *ip_header = (struct iphdr *)(packet + ethernet_header_len);
+        struct icmphdr *icmp_header = (struct icmphdr *)(packet + ethernet_header_len + sizeof(struct iphdr));
+        if (icmp_header->type == ICMP_ECHO)
         {
-            // extract ICMP header and print relevant information
-
-            struct icmphdr *icmph = (struct icmphdr *)(packet + ethLen + sizeof(struct iphdr));
-
-            // print the current time to the log file - for debugging purposes
-            time_t t = time(NULL);
-            struct tm tm = *localtime(&t);
-
-            // print the rest of the ICMP header information
-
-            printf("size of icmp: %ld\n", sizeof(struct icmphdr));
-
-            // calculate data size
-            int dataSize = len - ethLen - sizeof(struct iphdr) - sizeof(struct icmphdr);
-
-            // if there is data, print it to the log file
-            if (dataSize > 0)
-            {
-                char *data = (char *)(packet + ethLen + sizeof(struct iphdr) + sizeof(struct icmphdr));
-                printf("size of data: %d\n", dataSize);
-                while (dataSize > 0)
-                {
-                    printf("%c", *data);
-                    data++;
-                    dataSize--;
-                }
-            }
-
-            if (ICMPHeader->type == 8)
-            {
-                struct sockaddr_in dest;
-                dest.sin_addr.s_addr = IPHeader->daddr;
-
-                // print the destination address of the packet
-                printf("Catched ICMP echo request to %s\n", inet_ntoa(dest.sin_addr));
-                char *reply = allocate_reply_packet(packet, ethLen, len);
-                create_reply_packet(packet, ethLen, len, reply);
-                dest.sin_family = AF_INET; // IPv4
-
-                // send the reply to the destination address (IPHeader->daddr)
-                int i = send_reply(reply, len - ethLen, dest);
-
-                // catch errors
-                if (i == -1)
-                {
-                    printf("Sorry, error sending reply\n");
-                }
-                else
-                {
-                    printf("Nice! reply sent: %d bytes\n", i);
-                }
-            }
+            struct sockaddr_in dest;
+            dest.sin_addr.s_addr = ip_header->daddr;
+            catchNReplay(dest, packet, ethernet_header_len, packet_len, icmp_header);
         }
     }
 }
-
-/**
- * this function creates a reply packet to an ICMP echo request
- * @param *reply - the reply packet
- * @param length - the length of the packet
- * @param dest - the destination address
- * @return the number of bytes sent
- */
 
 int send_reply(char *reply, int length, struct sockaddr_in dest)
 {
@@ -328,4 +248,52 @@ void create_reply_packet(const u_char *packet, int etherHeader, int length, char
     struct icmphdr *ICMPHeader_reply = (struct icmphdr *)(reply + sizeof(struct iphdr));
     int dataLen = length - etherHeader - sizeof(struct iphdr) - sizeof(struct icmphdr);
     ICMPHeader_reply->checksum = calculate_checksum((unsigned short *)ICMPHeader_reply, sizeof(struct icmphdr) + dataLen);
+}
+
+int open_sniffing_device(char *device_name, char *error_buffer, pcap_t **handle)
+{
+    printf("Opening device %s for sniffing...\n", device_name);
+    *handle = pcap_open_live(device_name, 65536, 1, 1, error_buffer);
+    if (*handle == NULL)
+    {
+        fprintf(stderr, "Error opening device %s: %s\n", device_name, error_buffer);
+        return 2;
+    }
+    printf("Device %s opened successfully\n", device_name);
+    return 0;
+}
+
+int set_filter(pcap_t *handle, char *filter_exp, bpf_u_int32 net, struct bpf_program fp)
+{
+    int err = pcap_compile(handle, &fp, filter_exp, 0, net);
+    if (err != 0)
+    {
+        fprintf(stderr, "Error compiling filter: %s\n", pcap_geterr(handle));
+        return 1;
+    }
+    err = pcap_setfilter(handle, &fp);
+    if (err != 0)
+    {
+        fprintf(stderr, "Error setting filter: %s\n", pcap_geterr(handle));
+        return 2;
+    }
+    printf("Filter successfully set, starting sniffing...\n");
+    return 0;
+}
+
+void catchNReplay(struct sockaddr_in dest, const char *packet, int ether_header_len, int packet_len, struct iphdr *IPHeader)
+{
+    printf("Caught ICMP echo request to %s\n", inet_ntoa(dest.sin_addr));
+    char *reply = allocate_reply_packet(packet, ether_header_len, packet_len);
+    create_reply_packet(packet, ether_header_len, packet_len, reply);
+    dest.sin_family = AF_INET;
+    int bytes_sent = send_reply(reply, packet_len - ether_header_len, dest);
+    if (bytes_sent == -1)
+    {
+        printf("Error sending reply\n");
+    }
+    else
+    {
+        printf("Sent reply: %d bytes\n", bytes_sent);
+    }
 }
