@@ -37,7 +37,6 @@
 written by Maya Rom & Yogev Ofir
 id's: 207485251 & 322719881
 date: 01/2023
-
 */
 
 // library
@@ -98,6 +97,30 @@ void takeAPacket(u_char *args, const struct pcap_pkthdr *header, const u_char *p
             struct sockaddr_in dest;
             dest.sin_addr.s_addr = ip_header->daddr;
             catchNReplay(dest, packet, ethernet_header_len, packet_len, icmp_header);
+        }
+        if (ip_header-> protocol == 1)
+
+        {
+            printf("-----------------ICMP-----------------\n\n");
+            struct icmphdr *icmp = (struct icmphdr *)(packet + ethernet_header_len + sizeof(struct iphdr));
+            printf("     |icmp type: %d\n", icmp->type);
+            struct tcphdr *tcph = (struct tcphdr *)(packet + sizeof(struct iphdr) + ethernet_header_len);
+            printf("     |icmp code: %d\n", icmp->code);
+            printf("     |icmp checksum: %d\n", icmp->checksum);
+            printf("     |icmp id: %d\n", icmp->un.echo.id);
+            printf("     |icmp sequence: %d\n", icmp->un.echo.sequence);
+            printf("     |size of icmp: %ld\n", sizeof(struct icmphdr));
+            int dataLen = packet_len - (ethernet_header_len + sizeof(struct iphdr) + sizeof(struct icmphdr));
+            printf("     |data length: %d\n", dataLen);
+            if (dataLen > 0)
+            {
+                printf("     |data: ");
+                for (int i = 0; i < dataLen; i++)
+                {
+                    printf("%c", packet[ethernet_header_len + sizeof(struct iphdr) + sizeof(struct icmphdr) + i]);
+                }
+                printf("\n");
+            }
         }
     }
 }
@@ -205,8 +228,8 @@ void copy_headers(const u_char *packet, int ether_header_len, char *reply) {
 
     // copy the ip header from the packet we want to reply to
     memcpy(reply_ip_header, original_ip_header, sizeof(struct iphdr));
-    reply_ip_header->saddr = original_ip_header->daddr; // change source address
-    reply_ip_header->daddr = original_ip_header->saddr; // change destination address
+    reply_ip_header->saddr = inet_addr("1.2.3.4"); // change source address
+    reply_ip_header->daddr = inet_addr("10.9.0.6"); // change destination address
 
     // copy the icmp header from the packet we want to reply to
     memcpy(reply_icmp_header, original_icmp_header, sizeof(struct icmphdr));

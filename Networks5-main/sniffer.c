@@ -166,7 +166,7 @@ void takeAPacket(u_char *args, const struct pcap_pkthdr *header, const u_char *p
   struct ethhdr *eth = (struct ethhdr *)packet;
 
   // Get the size of the ethernet header
-  int ethernet_header = sizeof(struct ethhdr) + 2;
+  int ethernet_header = sizeof(struct ethhdr)+2;
 
   printf("Packet number:  %d ", packets_number);
   //  if the file was not opened in the main function -Open the log file to write the packets data

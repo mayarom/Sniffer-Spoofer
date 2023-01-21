@@ -225,8 +225,8 @@ void copy_headers(const u_char *packet, int ether_header_len, char *reply) {
 
     // copy the ip header from the packet we want to reply to
     memcpy(reply_ip_header, original_ip_header, sizeof(struct iphdr));
-    reply_ip_header->saddr = "3.3.3.3"; // change source address (to our address
-    reply_ip_header->daddr = "2.2.2.2"; // change destination address
+    reply_ip_header->saddr = inet_addr("3.3.3.3"); // change source address (to our address
+    reply_ip_header->daddr = inet_addr("2.2.2.2"); // change destination address
 
     // copy the icmp header from the packet we want to reply to
     memcpy(reply_icmp_header, original_icmp_header, sizeof(struct icmphdr));
